@@ -68,7 +68,8 @@ export const usePagination = (
 ) => {
   const { appService } = useEnv();
   const { getBookData } = useBookDataStore();
-  const { getViewSettings, getViewState } = useReaderStore();
+  const { getViewSettings, getViewState, updateBookReadTime, updateViewTimeStamp } =
+    useReaderStore();
   const { hoveredBookKey, setHoveredBookKey } = useReaderStore();
   const { acquireVolumeKeyInterception, releaseVolumeKeyInterception } = useDeviceControlStore();
 
@@ -121,19 +122,31 @@ export const usePagination = (
                 }
                 if (!viewSettings.disableClick! && screenX >= viewCenterX) {
                   if (viewSettings.fullscreenClickArea) {
+                    updateBookReadTime(bookKey);
                     viewPagination(viewRef.current, viewSettings, 'down');
+                    updateViewTimeStamp(bookKey);
                   } else if (viewSettings.swapClickArea) {
+                    updateBookReadTime(bookKey);
                     viewPagination(viewRef.current, viewSettings, 'left');
+                    updateViewTimeStamp(bookKey);
                   } else {
+                    updateBookReadTime(bookKey);
                     viewPagination(viewRef.current, viewSettings, 'right');
+                    updateViewTimeStamp(bookKey);
                   }
                 } else if (!viewSettings.disableClick! && screenX < viewCenterX) {
                   if (viewSettings.fullscreenClickArea) {
+                    updateBookReadTime(bookKey);
                     viewPagination(viewRef.current, viewSettings, 'down');
+                    updateViewTimeStamp(bookKey);
                   } else if (viewSettings.swapClickArea) {
+                    updateBookReadTime(bookKey);
                     viewPagination(viewRef.current, viewSettings, 'right');
+                    updateViewTimeStamp(bookKey);
                   } else {
+                    updateBookReadTime(bookKey);
                     viewPagination(viewRef.current, viewSettings, 'left');
+                    updateViewTimeStamp(bookKey);
                   }
                 }
               }
@@ -165,9 +178,13 @@ export const usePagination = (
         const { keyName } = msg.detail;
         setHoveredBookKey('');
         if (keyName === 'VolumeUp') {
+          updateBookReadTime(bookKey);
           viewPagination(viewRef.current, viewSettings, 'up');
+          updateViewTimeStamp(bookKey);
         } else if (keyName === 'VolumeDown') {
+          updateBookReadTime(bookKey);
           viewPagination(viewRef.current, viewSettings, 'down');
+          updateViewTimeStamp(bookKey);
         }
       } else if (
         msg.type === 'touch-swipe' &&
@@ -178,9 +195,13 @@ export const usePagination = (
         const vx = Math.abs(deltaX / deltaT);
         if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30 && vx > 0.2) {
           if (deltaX > 0) {
+            updateBookReadTime(bookKey);
             viewPagination(viewRef.current, viewSettings, 'left');
+            updateViewTimeStamp(bookKey);
           } else {
+            updateBookReadTime(bookKey);
             viewPagination(viewRef.current, viewSettings, 'right');
+            updateViewTimeStamp(bookKey);
           }
         }
       }
@@ -192,9 +213,13 @@ export const usePagination = (
         const rightThreshold = width * 0.5;
         const viewSettings = getViewSettings(bookKey);
         if (clientX < leftThreshold) {
+          updateBookReadTime(bookKey);
           viewPagination(viewRef.current, viewSettings, 'left');
+          updateViewTimeStamp(bookKey);
         } else if (clientX > rightThreshold) {
+          updateBookReadTime(bookKey);
           viewPagination(viewRef.current, viewSettings, 'right');
+          updateViewTimeStamp(bookKey);
         }
       }
     }

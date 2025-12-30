@@ -19,7 +19,14 @@ interface UseBookShortcutsProps {
 }
 
 const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) => {
-  const { getView, getViewState, getViewSettings, setViewSettings } = useReaderStore();
+  const {
+    getView,
+    getViewState,
+    getViewSettings,
+    setViewSettings,
+    updateBookReadTime,
+    updateViewTimeStamp,
+  } = useReaderStore();
   const { toggleSideBar, setSideBarBookKey } = useSidebarStore();
   const { setSettingsDialogOpen } = useSettingsStore();
   const { getBookData } = useBookDataStore();
@@ -45,41 +52,65 @@ const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) =
   };
 
   const goLeft = () => {
-    const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    viewPagination(getView(sideBarBookKey), viewSettings, 'left');
+    const bookKey = sideBarBookKey ?? '';
+    const viewSettings = getViewSettings(bookKey);
+    updateBookReadTime(bookKey);
+    viewPagination(getView(bookKey), viewSettings, 'left');
+    updateViewTimeStamp(bookKey);
   };
 
   const goRight = () => {
-    const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    viewPagination(getView(sideBarBookKey), viewSettings, 'right');
+    const bookKey = sideBarBookKey ?? '';
+    const viewSettings = getViewSettings(bookKey);
+    updateBookReadTime(bookKey);
+    viewPagination(getView(bookKey), viewSettings, 'right');
+    updateViewTimeStamp(bookKey);
   };
 
   const goPrevSection = () => {
-    const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    viewPagination(getView(sideBarBookKey), viewSettings, 'up', 'section');
+    const bookKey = sideBarBookKey ?? '';
+    const viewSettings = getViewSettings(bookKey);
+    updateBookReadTime(bookKey);
+    viewPagination(getView(bookKey), viewSettings, 'up', 'section');
+    updateViewTimeStamp(bookKey);
   };
 
   const goNextSection = () => {
-    const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    viewPagination(getView(sideBarBookKey), viewSettings, 'down', 'section');
+    const bookKey = sideBarBookKey ?? '';
+    const viewSettings = getViewSettings(bookKey);
+    updateBookReadTime(bookKey);
+    viewPagination(getView(bookKey), viewSettings, 'down', 'section');
+    updateViewTimeStamp(bookKey);
   };
 
   const goLeftSection = () => {
-    const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    viewPagination(getView(sideBarBookKey), viewSettings, 'left', 'section');
+    const bookKey = sideBarBookKey ?? '';
+    const viewSettings = getViewSettings(bookKey);
+    updateBookReadTime(bookKey);
+    viewPagination(getView(bookKey), viewSettings, 'left', 'section');
+    updateViewTimeStamp(bookKey);
   };
 
   const goRightSection = () => {
-    const viewSettings = getViewSettings(sideBarBookKey ?? '');
-    viewPagination(getView(sideBarBookKey), viewSettings, 'right', 'section');
+    const bookKey = sideBarBookKey ?? '';
+    const viewSettings = getViewSettings(bookKey);
+    updateBookReadTime(bookKey);
+    viewPagination(getView(bookKey), viewSettings, 'right', 'section');
+    updateViewTimeStamp(bookKey);
   };
 
   const goPrev = () => {
-    getView(sideBarBookKey)?.prev(distance);
+    const bookKey = sideBarBookKey ?? '';
+    updateBookReadTime(bookKey);
+    getView(bookKey)?.prev(distance);
+    updateViewTimeStamp(bookKey);
   };
 
   const goNext = () => {
-    getView(sideBarBookKey)?.next(distance);
+    const bookKey = sideBarBookKey ?? '';
+    updateBookReadTime(bookKey);
+    getView(bookKey)?.next(distance);
+    updateViewTimeStamp(bookKey);
   };
 
   const goPrevArrowUp = (event?: KeyboardEvent | MessageEvent) => {

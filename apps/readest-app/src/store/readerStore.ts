@@ -41,6 +41,7 @@ interface ViewState {
     view settings for primary view are saved to book config which is persisted to config file
     omitting settings that are not changed from global settings */
   viewSettings: ViewSettings | null;
+  viewTimeStamp: number | null;
 }
 
 interface ReaderStore {
@@ -82,6 +83,8 @@ interface ReaderStore {
   setGridInsets: (key: string, insets: Insets | null) => void;
   setViewInited: (key: string, inited: boolean) => void;
   recreateViewer: (envConfig: EnvConfigType, key: string) => void;
+  updateViewTimeStamp: (key: string) => void;
+  updateBookReadTime: (key: string) => void;
 }
 
 export const useReaderStore = create<ReaderStore>((set, get) => ({
@@ -113,6 +116,55 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
       return { viewStates };
     });
   },
+  updateViewTimeStamp: (key: string) => {
+    set((state) => {
+      const viewState = state.viewStates[key];
+      if (!viewState) return state;
+
+      return {
+        viewStates: {
+          ...state.viewStates,
+          [key]: {
+            ...viewState,
+            viewTimeStamp: Date.now(),
+          },
+        },
+      };
+    });
+  },
+  updateBookReadTime: (key: string) => {
+    const id = key.split('-')[0]!;
+    const bookData = useBookDataStore.getState().booksData[id];
+    const viewState = get().viewStates[key];
+    if (!viewState || !viewState.viewTimeStamp) return;
+    if (!bookData || !bookData.book) return;
+
+    const readingTimeMs = Date.now() - viewState.viewTimeStamp;
+    if (readingTimeMs <= 0 || readingTimeMs >= 900000) return; //ignore if time is over 15 minuts
+
+    const totalReadTimeMs = bookData.book.totalReadTime || 0;
+    const newTotalReadTimeMs = totalReadTimeMs + readingTimeMs;
+
+    // Update library book total read time
+    const { library, setLibrary } = useLibraryStore.getState();
+    const bookIndex = library.findIndex((b) => b.hash === id);
+    const updatedBook = { ...bookData.book, totalReadTime: newTotalReadTimeMs };
+    if (bookIndex !== -1) {
+      const updatedLibrary = [...library];
+      updatedLibrary[bookIndex] = updatedBook;
+      setLibrary(updatedLibrary);
+    }
+
+    useBookDataStore.setState((state) => ({
+      booksData: {
+        ...state.booksData,
+        [id]: {
+          ...bookData,
+          book: updatedBook,
+        },
+      },
+    }));
+  },
   getViewState: (key: string) => get().viewStates[key] || null,
   initViewState: async (
     envConfig: EnvConfigType,
@@ -140,6 +192,7 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
           syncing: false,
           gridInsets: null,
           viewSettings: null,
+          viewTimeStamp: null,
         },
       },
     }));
@@ -211,6 +264,7 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
             syncing: false,
             gridInsets: null,
             viewSettings: { ...globalViewSettings, ...configViewSettings },
+            viewTimeStamp: Date.now(),
           },
         },
       }));
@@ -234,6 +288,7 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
             syncing: false,
             gridInsets: null,
             viewSettings: null,
+            viewTimeStamp: null,
           },
         },
       }));
