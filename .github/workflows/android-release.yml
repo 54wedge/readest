@@ -1,0 +1,202 @@
+# Fork-local release workflow: build the Android APKs of this fork on demand.
+#
+# This file is fork-only (upstream has no copy of it), so it never conflicts
+# when `own-flavor` is rebased onto a new `main`. Every upstream workflow is
+# parked beside it as `*.yml.disabled` (plain renames, no content edits), so
+# nothing runs on push, pull request, schedule, or release events, and upstream
+# edits to those files keep merging cleanly into the renamed copies.
+#
+# Trigger: Actions -> "Release Readest (Android APK)" -> Run workflow, choosing
+# the ref to build (defaults to `own-flavor`). The APKs appear in the run's
+# Artifacts section; nothing is uploaded to a GitHub release and no upstream
+# release assets are touched.
+#
+# Signing: APKs are signed with the keystore held in the repository secrets
+# ANDROID_KEY_BASE64 / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD. When those are
+# absent the workflow generates a throwaway self-signed key so that even a first
+# run without any configuration produces installable APKs. Configure the secrets
+# for a stable signing identity that can upgrade your installs in place.
+name: Release Readest (Android APK)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch or tag) to build the APKs from'
+        required: true
+        default: 'own-flavor'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-android:
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+    # The two Android builds (universal + arm64) run ~50 min on a cold cache.
+    timeout-minutes: 120
+    env:
+      NDK_VERSION: '28.2.13676358'
+
+    steps:
+      - name: checkout ${{ inputs.ref }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: initialize git submodules
+        run: git submodule update --init --recursive
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: setup node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: setup Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: setup Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          # The legacy `tools` package (part of the action's default) no longer
+          # exists in the SDK repository and makes sdkmanager fail.
+          packages: 'platform-tools'
+
+      - name: install NDK
+        run: sdkmanager "ndk;${NDK_VERSION}"
+
+      - name: install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: copy pdfjs-dist and simplecc-dist to public directory
+        run: pnpm --filter @readest/readest-app setup-vendors
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2
+        with:
+          key: android-release-cargo
+
+      # Optional overrides. The fork builds fine without these: apps/readest-app
+      # ships .env + .env.tauri with the public defaults, and SENTRY_AUTH_TOKEN
+      # absent only makes the source-map upload a no-op. Only non-empty secrets
+      # are written, so an unset secret cannot blank out a working default.
+      - name: write .env.local from repository secrets
+        env:
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd apps/readest-app
+          {
+            echo "NEXT_PUBLIC_APP_PLATFORM=tauri"
+            for key in NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST \
+                       NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY \
+                       SENTRY_DSN SENTRY_AUTH_TOKEN; do
+              value="$(printenv "$key" || true)"
+              if [ -n "$value" ]; then echo "$key=$value"; fi
+            done
+            echo "SENTRY_ORG=readest"
+            echo "SENTRY_PROJECT=readest"
+          } > .env.local
+          echo "wrote apps/readest-app/.env.local with keys:"
+          cut -d= -f1 .env.local
+
+      # Stage keystore.properties (keyAlias/password/storeFile) plus the keystore
+      # itself outside apps/readest-app: `pnpm tauri android init` below wipes
+      # src-tauri/gen/android, so they can only be dropped in afterwards.
+      - name: prepare signing keystore
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/keystore.jks"
+          if [ -n "${ANDROID_KEY_BASE64:-}" ]; then
+            echo "Signing with the keystore from the ANDROID_KEY_BASE64 secret"
+            base64 -d <<< "$ANDROID_KEY_BASE64" > "$keystore"
+            key_alias="${ANDROID_KEY_ALIAS:-readest}"
+            key_password="$ANDROID_KEY_PASSWORD"
+            if [ -z "$key_password" ]; then
+              echo "::error::ANDROID_KEY_BASE64 is set but ANDROID_KEY_PASSWORD is empty"
+              exit 1
+            fi
+          else
+            echo "::warning::ANDROID_KEY_BASE64 is not set - generating a throwaway self-signed keystore. Set the ANDROID_KEY_* repository secrets for a stable signing key."
+            key_alias="readest"
+            key_password="$(openssl rand -hex 16)"
+            keytool -genkeypair -v \
+              -keystore "$keystore" \
+              -alias "$key_alias" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$key_password" -keypass "$key_password" \
+              -dname "CN=Readest Own Flavor, OU=Own Flavor, O=Readest Fork, C=US"
+          fi
+          {
+            echo "keyAlias=$key_alias"
+            echo "password=$key_password"
+            echo "storeFile=$keystore"
+          } > "$RUNNER_TEMP/keystore.properties"
+          # Fail here rather than 50 minutes into the build if the key is bad.
+          keytool -list -keystore "$keystore" -storepass "$key_password" -alias "$key_alias" > /dev/null
+
+      - name: build Android APKs
+        id: build
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+        run: |
+          set -euo pipefail
+          cd apps/readest-app
+
+          # Regenerate the Android project (gen/android is partly tracked) and
+          # restore the tracked files that `init`/`icon` rewrite.
+          rm -rf src-tauri/gen/android
+          pnpm tauri android init
+          pnpm tauri icon ../../data/icons/readest-book.png
+          git checkout .
+
+          cp "$RUNNER_TEMP/keystore.properties" src-tauri/gen/android/keystore.properties
+
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          apk_path=src-tauri/gen/android/app/build/outputs/apk/universal/release
+          universal_apk="Readest_${version}_universal.apk"
+          arm64_apk="Readest_${version}_arm64.apk"
+
+          pnpm tauri android build
+          cp "${apk_path}/app-universal-release.apk" "$universal_apk"
+
+          pnpm tauri android build -t aarch64
+          cp "${apk_path}/app-universal-release.apk" "$arm64_apk"
+
+          ls -lh "$universal_apk" "$arm64_apk"
+
+      - name: upload APKs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: readest-android-${{ steps.build.outputs.version }}-${{ github.run_number }}
+          path: apps/readest-app/Readest_*.apk
+          if-no-files-found: error
+          retention-days: 30
