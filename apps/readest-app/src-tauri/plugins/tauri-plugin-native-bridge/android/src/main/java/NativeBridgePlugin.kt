@@ -809,10 +809,10 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
                     }
                     if (visible) {
                         controller.show(WindowInsets.Type.statusBars())
-                        controller.hide(WindowInsets.Type.navigationBars())
                     } else {
-                        controller.hide(WindowInsets.Type.systemBars())
+                        controller.hide(WindowInsets.Type.statusBars())
                     }
+                    // [fork] own-flavor: navigation bar left to the system (upstream hides it, #3646).
                 }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val compatController = WindowCompat.getInsetsController(window, decorView)
@@ -825,17 +825,17 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
                     }
                     if (visible) {
                         it.show(WindowInsetsCompat.Type.statusBars())
-                        it.hide(WindowInsetsCompat.Type.navigationBars())
                     } else {
-                        it.hide(WindowInsetsCompat.Type.systemBars())
+                        it.hide(WindowInsetsCompat.Type.statusBars())
                     }
+                    // [fork] own-flavor: status bar only; navigation bar left to the system.
                 }
             } else {
                 @Suppress("DEPRECATION")
                 decorView.systemUiVisibility = buildList {
                     add(View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
                     add(View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
-                    add(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)
+                    // [fork] own-flavor: HIDE_NAVIGATION dropped; navigation bar left to the system.
                     add(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
                     add(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
 
