@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { CgColorPicker } from 'react-icons/cg';
+import { getContrastHex } from '@/styles/themes';
 
 type ColorInputProps = {
   label: string;
@@ -20,6 +21,7 @@ type ColorInputProps = {
    */
   showPickerIcon?: boolean;
   pickerPosition?: 'left' | 'center' | 'right';
+  badge?: string;
 };
 
 const ColorInput: React.FC<ColorInputProps> = ({
@@ -29,6 +31,7 @@ const ColorInput: React.FC<ColorInputProps> = ({
   onCommit,
   showPickerIcon = false,
   pickerPosition = 'left',
+  badge,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -71,11 +74,21 @@ const ColorInput: React.FC<ColorInputProps> = ({
       <button
         type='button'
         onClick={() => setIsOpen(!isOpen)}
-        className='border-base-300 focus-visible:ring-base-content/20 focus-visible:ring-offset-base-100 h-7 w-7 rounded-full border-2 shadow-xs transition-transform hover:scale-110 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-1'
+        className='border-base-300 focus-visible:ring-base-content/20 focus-visible:ring-offset-base-100 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-xs transition-transform hover:scale-110 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-1'
         style={{ backgroundColor: value }}
         aria-label={label || 'Choose color'}
         title={label || 'Choose color'}
-      />
+      >
+        {badge && (
+          <span
+            aria-hidden='true'
+            className='pointer-events-none text-xs leading-none font-bold'
+            style={{ color: getContrastHex(value), textBox: 'trim-both cap alphabetic' }}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
       {showPickerIcon && (
         <button
           type='button'

@@ -129,6 +129,9 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
   const [defaultHighlightLabels, setDefaultHighlightLabels] = useState<
     Partial<Record<DefaultHighlightColor, string>>
   >(settings.globalReadSettings.defaultHighlightLabels ?? {});
+  const [showHighlightLabels, setShowHighlightLabels] = useState(
+    settings.globalReadSettings.showHighlightLabels ?? false,
+  );
 
   const [readingRulerEnabled, setReadingRulerEnabled] = useState(viewSettings.readingRulerEnabled);
   const [readingRulerLines, setReadingRulerLines] = useState(viewSettings.readingRulerLines);
@@ -172,6 +175,7 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
     setCustomHighlightColors(HIGHLIGHT_COLOR_HEX);
     setUserHighlightColors([]);
     setDefaultHighlightLabels({});
+    setShowHighlightLabels(false);
     deactivateAtmosphere();
   };
 
@@ -511,6 +515,13 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
     saveSettings(envConfig, settings);
   };
 
+  const handleShowHighlightLabelsChange = (enabled: boolean) => {
+    setShowHighlightLabels(enabled);
+    settings.globalReadSettings.showHighlightLabels = enabled;
+    setSettings(settings);
+    saveSettings(envConfig, settings);
+  };
+
   return (
     // In editor mode the ThemeEditor owns its own top spacing (mt-6) and pins a
     // sticky Save/Cancel footer to the scroll bottom. Dropping the wrapper's
@@ -594,10 +605,12 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
             userHighlightColors={userHighlightColors}
             defaultHighlightLabels={defaultHighlightLabels}
             highlightOpacity={highlightOpacity}
+            showHighlightLabels={showHighlightLabels}
             onCustomHighlightColorsChange={handleCustomHighlightColorsChange}
             onUserHighlightColorsChange={handleUserHighlightColorsChange}
             onDefaultHighlightLabelsChange={handleDefaultHighlightLabelsChange}
             onOpacityChange={setHighlightOpacity}
+            onShowHighlightLabelsChange={handleShowHighlightLabelsChange}
             data-setting-id='settings.color.highlightColors'
           />
 

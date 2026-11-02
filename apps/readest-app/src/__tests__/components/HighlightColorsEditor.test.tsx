@@ -61,10 +61,12 @@ const Harness: React.FC<{ initialUserColors: UserHighlightColor[] }> = ({ initia
       userHighlightColors={userColors}
       defaultHighlightLabels={labels}
       highlightOpacity={0.3}
+      showHighlightLabels={false}
       onCustomHighlightColorsChange={setCustomColors}
       onUserHighlightColorsChange={setUserColors}
       onDefaultHighlightLabelsChange={setLabels}
       onOpacityChange={() => {}}
+      onShowHighlightLabelsChange={() => {}}
     />
   );
 };

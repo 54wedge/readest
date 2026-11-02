@@ -52,6 +52,22 @@ export const getHighlightColorLabel = (
   return undefined;
 };
 
+/**
+ * First grapheme of a color label — a letter, a CJK character, or a whole
+ * emoji — so an emoji is never cut into a partial sequence. The label's case
+ * is preserved: a user may deliberately start it with a lowercase letter.
+ */
+export const getHighlightLabelInitial = (label: string): string => {
+  const trimmed = label.trim();
+  if (!trimmed) return '';
+  const segmenter =
+    typeof Intl !== 'undefined' && 'Segmenter' in Intl
+      ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+      : null;
+  const segment = segmenter ? segmenter.segment(trimmed)[Symbol.iterator]().next().value : null;
+  return segment?.segment ?? Array.from(trimmed)[0] ?? '';
+};
+
 const ALL_HIGHLIGHT_STYLES: readonly HighlightStyle[] = ['highlight', 'underline', 'squiggly'];
 
 export interface ExportFilter {

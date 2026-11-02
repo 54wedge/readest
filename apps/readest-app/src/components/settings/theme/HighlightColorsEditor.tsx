@@ -8,7 +8,8 @@ import {
   UserHighlightColor,
 } from '@/types/book';
 import { useTranslation } from '@/hooks/useTranslation';
-import { BoxedList, SettingLabel } from '../primitives';
+import { getHighlightLabelInitial } from '@/app/reader/utils/annotatorUtil';
+import { BoxedList, SettingLabel, SettingsSwitchRow } from '../primitives';
 import NumberInput from '../NumberInput';
 import ColorInput from './ColorInput';
 
@@ -19,10 +20,12 @@ interface HighlightColorsEditorProps {
   userHighlightColors: UserHighlightColor[];
   defaultHighlightLabels: Partial<Record<DefaultHighlightColor, string>>;
   highlightOpacity: number;
+  showHighlightLabels: boolean;
   onCustomHighlightColorsChange: (colors: Record<HighlightColor, string>) => void;
   onUserHighlightColorsChange: (colors: UserHighlightColor[]) => void;
   onDefaultHighlightLabelsChange: (labels: Partial<Record<DefaultHighlightColor, string>>) => void;
   onOpacityChange: (opacity: number) => void;
+  onShowHighlightLabelsChange: (enabled: boolean) => void;
 }
 
 /**
@@ -121,10 +124,12 @@ const HighlightColorsEditor: React.FC<HighlightColorsEditorProps> = ({
   userHighlightColors,
   defaultHighlightLabels,
   highlightOpacity,
+  showHighlightLabels,
   onCustomHighlightColorsChange,
   onUserHighlightColorsChange,
   onDefaultHighlightLabelsChange,
   onOpacityChange,
+  onShowHighlightLabelsChange,
 }) => {
   const _ = useTranslation();
   const [newColor, setNewColor] = useState('#808080');
@@ -204,6 +209,11 @@ const HighlightColorsEditor: React.FC<HighlightColorsEditorProps> = ({
                 label={_('Edit color')}
                 value={customHighlightColors[color]!}
                 pickerPosition={position}
+                badge={
+                  showHighlightLabels
+                    ? getHighlightLabelInitial(userLabel || defaultColorNames[color])
+                    : undefined
+                }
                 onChange={(value: string) => handleDefaultHexChange(color, value)}
               />
               <EditableLabel
@@ -247,6 +257,7 @@ const HighlightColorsEditor: React.FC<HighlightColorsEditorProps> = ({
                   label={_('Edit color')}
                   value={hex}
                   pickerPosition={index === 0 ? 'left' : 'center'}
+                  badge={showHighlightLabels && label ? getHighlightLabelInitial(label) : undefined}
                   onChange={(value: string) => handleUserHexChange(hex, value)}
                 />
                 <EditableLabel
@@ -266,6 +277,12 @@ const HighlightColorsEditor: React.FC<HighlightColorsEditorProps> = ({
           </div>
         )}
       </div>
+
+      <SettingsSwitchRow
+        label={_('Show Color Labels')}
+        checked={showHighlightLabels}
+        onChange={() => onShowHighlightLabelsChange(!showHighlightLabels)}
+      />
 
       <NumberInput
         label={_('Opacity')}

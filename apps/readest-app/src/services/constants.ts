@@ -348,6 +348,7 @@ export const DEFAULT_READSETTINGS: ReadSettings = {
   customHighlightColors: HIGHLIGHT_COLOR_HEX,
   userHighlightColors: [],
   defaultHighlightLabels: {},
+  showHighlightLabels: false,
   customTtsHighlightColors: [],
 };
 

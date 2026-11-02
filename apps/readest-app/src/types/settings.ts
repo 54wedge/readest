@@ -77,6 +77,7 @@ export interface ReadSettings {
   customHighlightColors: Record<HighlightColor, string>;
   userHighlightColors: UserHighlightColor[];
   defaultHighlightLabels: Partial<Record<HighlightColor, string>>;
+  showHighlightLabels: boolean;
   customTtsHighlightColors: string[];
   customThemes: CustomTheme[];
 
