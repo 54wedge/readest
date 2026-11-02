@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { CgColorPicker } from 'react-icons/cg';
+import HighlightLabelBadge from '@/components/HighlightLabelBadge';
 import { getContrastHex } from '@/styles/themes';
 
 type ColorInputProps = {
@@ -79,15 +80,7 @@ const ColorInput: React.FC<ColorInputProps> = ({
         aria-label={label || 'Choose color'}
         title={label || 'Choose color'}
       >
-        {badge && (
-          <span
-            aria-hidden='true'
-            className='pointer-events-none text-xs leading-none font-bold'
-            style={{ color: getContrastHex(value), textBox: 'trim-both cap alphabetic' }}
-          >
-            {badge}
-          </span>
-        )}
+        {badge && <HighlightLabelBadge label={badge} color={getContrastHex(value)} />}
       </button>
       {showPickerIcon && (
         <button

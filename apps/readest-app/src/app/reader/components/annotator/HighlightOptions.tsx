@@ -12,6 +12,7 @@ import { useDragScroll } from '@/hooks/useDragScroll';
 import { saveSysSettings } from '@/helpers/settings';
 import { LONG_HOLD_THRESHOLD } from '@/services/constants';
 import { getHighlightColorLabel, getHighlightLabelInitial } from '../../utils/annotatorUtil';
+import HighlightLabelBadge from '@/components/HighlightLabelBadge';
 import { getContrastHex } from '@/styles/themes';
 import { stubTranslation as _ } from '@/utils/misc';
 
@@ -404,17 +405,11 @@ const HighlightOptions: React.FC<HighlightOptionsProps> = ({
               >
                 {showHighlightLabels
                   ? labelInitial && (
-                      <span
-                        aria-hidden='true'
-                        className='pointer-events-none leading-none font-bold'
-                        style={{
-                          color: labelTextColor,
-                          fontSize: size10,
-                          textBox: 'trim-both cap alphabetic',
-                        }}
-                      >
-                        {labelInitial}
-                      </span>
+                      <HighlightLabelBadge
+                        label={labelInitial}
+                        color={labelTextColor}
+                        fontSize={size10}
+                      />
                     )
                   : selectedColor === color && (
                       <FaCheck

@@ -68,6 +68,16 @@ export const getHighlightLabelInitial = (label: string): string => {
   return segment?.segment ?? Array.from(trimmed)[0] ?? '';
 };
 
+/** Lowercase letters with ink below the baseline. */
+const HAS_DESCENDER = /^[gjpqy]/;
+
+/**
+ * `text-box` edge that centers the label glyph: descenders need the x-height
+ * box, everything else reads best on cap height.
+ */
+export const getHighlightLabelCenterStyle = (label: string): string =>
+  HAS_DESCENDER.test(label) ? 'trim-both ex alphabetic' : 'trim-both cap alphabetic';
+
 const ALL_HIGHLIGHT_STYLES: readonly HighlightStyle[] = ['highlight', 'underline', 'squiggly'];
 
 export interface ExportFilter {
