@@ -374,7 +374,7 @@ const HighlightOptions: React.FC<HighlightOptionsProps> = ({
             const label = resolveHighlightLabel(color);
             const swatchColor = customColors[color] || color;
             const labelInitial = getHighlightLabelInitial(label);
-            const labelTextColor = getContrastHex(swatchColor);
+            const labelTextColor = getContrastHex(isBwEink ? einkFgColor : swatchColor);
             const showSelectedRing = showHighlightLabels && selectedColor === color;
             return (
               <div key={color} className='relative flex shrink-0 items-center justify-center'>
