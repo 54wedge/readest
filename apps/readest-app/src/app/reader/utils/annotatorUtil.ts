@@ -59,7 +59,7 @@ export const getHighlightColorLabel = (
  */
 export const getHighlightLabelInitial = (label: string): string => {
   const trimmed = label.trim();
-  if (!trimmed) return '';
+  if (!trimmed || trimmed.startsWith('#')) return '';
   const segmenter =
     typeof Intl !== 'undefined' && 'Segmenter' in Intl
       ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
