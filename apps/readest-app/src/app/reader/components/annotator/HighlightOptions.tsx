@@ -368,70 +368,68 @@ const HighlightOptions: React.FC<HighlightOptionsProps> = ({
           userSelect: isDraggingColorStrip ? 'none' : undefined,
         }}
       >
-        {allColors
-          .filter((c) => (isBwEink ? selectedColor === c : true))
-          .map((color) => {
-            const label = resolveHighlightLabel(color);
-            const swatchColor = customColors[color] || color;
-            const labelInitial = getHighlightLabelInitial(label);
-            const labelTextColor = getContrastHex(isBwEink ? einkFgColor : swatchColor);
-            const showSelectedRing = showHighlightLabels && selectedColor === color;
-            return (
-              <div key={color} className='relative flex shrink-0 items-center justify-center'>
-                {previewColor === color && (
-                  <div
-                    className='eink-bordered pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-0.5 text-[10px] text-white'
-                    style={{ maxWidth: 120 }}
-                  >
-                    {label}
-                  </div>
-                )}
-                <button
-                  aria-label={_('Select {{color}} color', { color: label })}
-                  title={label}
-                  onClick={() => handleColorClick(color)}
-                  onPointerDown={(event) => handleColorPointerDown(event, color)}
-                  onPointerUp={handleColorPointerEnd}
-                  onPointerLeave={handleColorPointerEnd}
-                  onPointerCancel={handleColorPointerEnd}
-                  style={{
-                    width: size16,
-                    height: size16,
-                    backgroundColor: isBwEink ? einkFgColor : swatchColor,
-                  }}
-                  className={clsx(
-                    'flex items-center justify-center rounded-full p-0',
-                    showSelectedRing && 'outline-2 outline-offset-2 outline-base-content',
-                  )}
+        {allColors.map((color) => {
+          const label = resolveHighlightLabel(color);
+          const swatchColor = customColors[color] || color;
+          const labelInitial = getHighlightLabelInitial(label);
+          const labelTextColor = getContrastHex(isBwEink ? einkFgColor : swatchColor);
+          const showSelectedRing = showHighlightLabels && selectedColor === color;
+          return (
+            <div key={color} className='relative flex shrink-0 items-center justify-center'>
+              {previewColor === color && (
+                <div
+                  className='eink-bordered pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-0.5 text-[10px] text-white'
+                  style={{ maxWidth: 120 }}
                 >
-                  {showHighlightLabels
-                    ? labelInitial && (
-                        <span
-                          aria-hidden='true'
-                          className='pointer-events-none leading-none font-bold'
-                          style={{
-                            color: labelTextColor,
-                            fontSize: size10,
-                            textBox: 'trim-both cap alphabetic',
-                          }}
-                        >
-                          {labelInitial}
-                        </span>
-                      )
-                    : selectedColor === color && (
-                        <FaCheck
-                          size={size10}
-                          // Same reason as the marker glyph: on B&W e-ink the dot
-                          // is a base-content disc, so the check sets its own
-                          // contrasting ink and must not be flattened back.
-                          className={clsx(!isBwEink && 'text-base-content')}
-                          style={isBwEink ? { color: einkBgColor } : undefined}
-                        />
-                      )}
-                </button>
-              </div>
-            );
-          })}
+                  {label}
+                </div>
+              )}
+              <button
+                aria-label={_('Select {{color}} color', { color: label })}
+                title={label}
+                onClick={() => handleColorClick(color)}
+                onPointerDown={(event) => handleColorPointerDown(event, color)}
+                onPointerUp={handleColorPointerEnd}
+                onPointerLeave={handleColorPointerEnd}
+                onPointerCancel={handleColorPointerEnd}
+                style={{
+                  width: size16,
+                  height: size16,
+                  backgroundColor: isBwEink ? einkFgColor : swatchColor,
+                }}
+                className={clsx(
+                  'flex items-center justify-center rounded-full p-0',
+                  showSelectedRing && 'outline-2 outline-offset-2 outline-base-content',
+                )}
+              >
+                {showHighlightLabels
+                  ? labelInitial && (
+                      <span
+                        aria-hidden='true'
+                        className='pointer-events-none leading-none font-bold'
+                        style={{
+                          color: labelTextColor,
+                          fontSize: size10,
+                          textBox: 'trim-both cap alphabetic',
+                        }}
+                      >
+                        {labelInitial}
+                      </span>
+                    )
+                  : selectedColor === color && (
+                      <FaCheck
+                        size={size10}
+                        // Same reason as the marker glyph: on B&W e-ink the dot
+                        // is a base-content disc, so the check sets its own
+                        // contrasting ink and must not be flattened back.
+                        className={clsx(!isBwEink && 'text-base-content')}
+                        style={isBwEink ? { color: einkBgColor } : undefined}
+                      />
+                    )}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
