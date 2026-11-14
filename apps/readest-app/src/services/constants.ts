@@ -536,6 +536,9 @@ export const DEFAULT_VIEW_CONFIG: ViewConfig = {
   isEink: false,
   isColorEink: false,
   einkAutoRefreshInterval: 0,
+  einkPageTurnAnimation: false,
+  einkPageTurnEffect: 'default',
+  einkPageTurnSpeed: 'default',
 
   paragraphMode: DEFAULT_PARAGRAPH_MODE_CONFIG,
 

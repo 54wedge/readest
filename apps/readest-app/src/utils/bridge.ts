@@ -146,6 +146,31 @@ export interface EinkRefreshSupportedResponse {
   supported: boolean;
 }
 
+export interface EinkPageTurnRequest {
+  /** Vendor-defined direction style; omitted uses the native default. */
+  effectType?: number;
+  forward: boolean;
+  /** Vendor-defined speed; omitted asks the panel for its own default. */
+  speed?: number;
+}
+
+export interface EinkPageTurnResponse {
+  success: boolean;
+}
+
+/** One selectable page-turn option; `label` is its translation key. */
+export interface EinkPageTurnOption {
+  value: number;
+  label: string;
+}
+
+/** Native capability probe; unsupported platforms return empty option lists. */
+export interface EinkPageAnimationCapabilities {
+  supported: boolean;
+  effectTypes: EinkPageTurnOption[];
+  speeds: EinkPageTurnOption[];
+}
+
 export async function copyURIToPath(request: CopyURIRequest): Promise<CopyURIResponse> {
   const result = await invoke<CopyURIResponse>('plugin:native-bridge|copy_uri_to_path', {
     payload: request,
@@ -401,6 +426,51 @@ export function checkEinkRefreshSupported(): Promise<boolean> {
 // supported device are transient and must not disable the feature.
 export function getCachedEinkRefreshSupported(): boolean | null {
   return einkRefreshSupportedSettled;
+}
+
+/** Play once after navigation. True means the native command was issued, not animation completion. */
+export async function playEinkPageTurn(request: EinkPageTurnRequest): Promise<boolean> {
+  const response = await invoke<EinkPageTurnResponse>('plugin:native-bridge|play_eink_page_turn', {
+    payload: request,
+  });
+  return response.success;
+}
+
+async function getEinkPageAnimationCapabilities(): Promise<EinkPageAnimationCapabilities> {
+  return await invoke<EinkPageAnimationCapabilities>(
+    'plugin:native-bridge|get_eink_page_animation_capabilities',
+  );
+}
+
+const NO_EINK_PAGE_ANIMATION: EinkPageAnimationCapabilities = {
+  supported: false,
+  effectTypes: [],
+  speeds: [],
+};
+
+// Like the refresh probe, cache confirmed support/absence but retry rejected calls.
+let einkPageAnimationCapabilitiesPromise: Promise<EinkPageAnimationCapabilities> | null = null;
+let einkPageAnimationCapabilitiesSettled: EinkPageAnimationCapabilities | null = null;
+
+export function checkEinkPageAnimationCapabilities(): Promise<EinkPageAnimationCapabilities> {
+  if (!einkPageAnimationCapabilitiesPromise) {
+    einkPageAnimationCapabilitiesPromise = getEinkPageAnimationCapabilities().then(
+      (capabilities) => {
+        einkPageAnimationCapabilitiesSettled = capabilities;
+        return capabilities;
+      },
+      (error) => {
+        console.error('eink page animation capability probe inconclusive, will retry:', error);
+        einkPageAnimationCapabilitiesPromise = null;
+        return NO_EINK_PAGE_ANIMATION;
+      },
+    );
+  }
+  return einkPageAnimationCapabilitiesPromise;
+}
+
+export function getCachedEinkPageAnimationCapabilities(): EinkPageAnimationCapabilities | null {
+  return einkPageAnimationCapabilitiesSettled;
 }
 
 /** Webview region to snapshot, in CSS pixels of the viewport (origin top-left). */

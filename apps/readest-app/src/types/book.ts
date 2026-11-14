@@ -444,6 +444,11 @@ export interface ViewConfig {
    * spare buttons, so this clears accumulated ghosting on its own.
    */
   einkAutoRefreshInterval: number;
+  /** Play the panel's own animation instead of a software page transition. */
+  einkPageTurnAnimation: boolean;
+  /** Vendor values from the capability probe; 'default' leaves the choice native. */
+  einkPageTurnEffect: number | 'default';
+  einkPageTurnSpeed: number | 'default';
 
   paragraphMode: ParagraphModeConfig;
 

@@ -30,8 +30,15 @@ import AnnotationToolbarCustomizer from './AnnotationToolbarCustomizer';
 import { DEFAULT_ANNOTATION_TOOLBAR_ITEMS } from '@/utils/annotationToolbar';
 import { canShareText } from '@/utils/share';
 import { useEinkRefreshSupported } from '@/hooks/useEinkRefreshSupported';
+import { useEinkPageAnimationCapabilities } from '@/hooks/useEinkPageAnimationCapabilities';
 import { optInTelemetry, optOutTelemetry } from '@/utils/telemetry';
 import KeyboardShortcutsSettings from './KeyboardShortcutsSettings';
+
+// Select value for the panel's own page-turn default. It is stored as the
+// explicit 'default' choice: the reader sends no override for it and the
+// native side applies the panel default, so the settings never display a
+// value the user did not choose.
+const EINK_PANEL_DEFAULT = 'default';
 
 const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset }) => {
   const _ = useTranslation();
@@ -87,6 +94,17 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
   // "Auto Full Refresh" row is only offered when true, so it never appears on
   // panels (or phones) where the deep refresh silently does nothing.
   const einkRefreshSupported = useEinkRefreshSupported();
+  // The panel's own page-turn effect and the options that panel accepts; null
+  // until the probe settles, so a panel without the effect API keeps the
+  // generic animation rows.
+  const einkPageAnimation = useEinkPageAnimationCapabilities();
+  // Page-turn preferences are per-book view settings, saved like the other
+  // reading settings (honouring the book's "apply to all" choice).
+  const [einkPageTurnAnimation, setEinkPageTurnAnimation] = useState(
+    viewSettings.einkPageTurnAnimation,
+  );
+  const [einkPageTurnEffect, setEinkPageTurnEffect] = useState(viewSettings.einkPageTurnEffect);
+  const [einkPageTurnSpeed, setEinkPageTurnSpeed] = useState(viewSettings.einkPageTurnSpeed);
   const [alwaysShowStatusBar, setAlwaysShowStatusBar] = useState(settings.alwaysShowStatusBar);
   const [autoScreenBrightness, setAutoScreenBrightness] = useState(settings.autoScreenBrightness);
   const [swipeBrightnessGesture, setSwipeBrightnessGesture] = useState(
@@ -180,6 +198,23 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
   )
     ? einkAutoRefreshIntervalOptions
     : [...einkAutoRefreshIntervalOptions, { value: currentInterval, label: currentInterval }];
+
+  const einkPageTurnEffectOptions = [
+    { value: EINK_PANEL_DEFAULT, label: _('Panel Default') },
+    ...(einkPageAnimation?.effectTypes ?? []).map((option) => ({
+      value: String(option.value),
+      label: _(option.label),
+    })),
+  ];
+  const einkPageTurnSpeedOptions = [
+    { value: EINK_PANEL_DEFAULT, label: _('Panel Default') },
+    ...(einkPageAnimation?.speeds ?? []).map((option) => ({
+      value: String(option.value),
+      label: _(option.label),
+    })),
+  ];
+  const einkPageTurnEffectValue = String(einkPageTurnEffect);
+  const einkPageTurnSpeedValue = String(einkPageTurnSpeed);
   const handleReset = () => {
     resetToDefaults({
       scrolled: setScrolledMode,
@@ -196,6 +231,9 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
       pageTurnStyle: setPageTurnStyle,
       isEink: setIsEink,
       einkAutoRefreshInterval: setEinkAutoRefreshInterval,
+      einkPageTurnAnimation: setEinkPageTurnAnimation,
+      einkPageTurnEffect: setEinkPageTurnEffect,
+      einkPageTurnSpeed: setEinkPageTurnSpeed,
       allowScript: setAllowScript,
       fullscreenClickArea: setFullscreenClickArea,
       disableDoubleClick: setIsDisableDoubleClick,
@@ -391,6 +429,31 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [einkAutoRefreshInterval]);
+
+  useEffect(() => {
+    if (einkPageTurnAnimation === viewSettings.einkPageTurnAnimation) return;
+    saveViewSettings(
+      envConfig,
+      bookKey,
+      'einkPageTurnAnimation',
+      einkPageTurnAnimation,
+      false,
+      false,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [einkPageTurnAnimation]);
+
+  useEffect(() => {
+    if (einkPageTurnEffect === viewSettings.einkPageTurnEffect) return;
+    saveViewSettings(envConfig, bookKey, 'einkPageTurnEffect', einkPageTurnEffect, false, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [einkPageTurnEffect]);
+
+  useEffect(() => {
+    if (einkPageTurnSpeed === viewSettings.einkPageTurnSpeed) return;
+    saveViewSettings(envConfig, bookKey, 'einkPageTurnSpeed', einkPageTurnSpeed, false, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [einkPageTurnSpeed]);
 
   useEffect(() => {
     if (alwaysShowStatusBar === settings.alwaysShowStatusBar) return;
@@ -703,25 +766,78 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
       </BoxedList>
 
       <BoxedList title={_('Animation')} data-setting-id='settings.control.pagingAnimation'>
-        <SettingsSwitchRow
-          label={_('Paging Animation')}
-          checked={animated && !isEink}
-          onChange={() => setAnimated(!animated)}
-          disabled={isEink}
-        />
-        <SettingsRow label={_('Animation Style')} data-setting-id='settings.control.pageTurnStyle'>
-          <SettingsSelect
-            // A synced slide/curl setting from another device still reads as
-            // push here when this engine cannot animate it.
-            value={
-              turnStyleOptions.some((opt) => opt.value === shownTurnStyle) ? shownTurnStyle : 'push'
-            }
-            onChange={(e) => setPageTurnStyle(e.target.value as PageTurnStyle)}
-            ariaLabel={_('Animation Style')}
-            options={turnStyleOptions}
-            disabled={!animated || isEink}
-          />
-        </SettingsRow>
+        {isEink && einkPageAnimation?.supported ? (
+          <>
+            <SettingsSwitchRow
+              label={_('E-Ink Paging Animation')}
+              description={_('The screen animates page turns')}
+              checked={einkPageTurnAnimation}
+              onChange={() => setEinkPageTurnAnimation(!einkPageTurnAnimation)}
+              data-setting-id='settings.control.einkPageTurnAnimation'
+            />
+            <SettingsRow
+              label={_('E-Ink Animation Style')}
+              disabled={!einkPageTurnAnimation}
+              data-setting-id='settings.control.einkPageTurnEffect'
+            >
+              <SettingsSelect
+                value={einkPageTurnEffectValue}
+                onChange={(e) =>
+                  setEinkPageTurnEffect(
+                    e.target.value === EINK_PANEL_DEFAULT ? 'default' : Number(e.target.value),
+                  )
+                }
+                ariaLabel={_('E-Ink Animation Style')}
+                disabled={!einkPageTurnAnimation}
+                options={einkPageTurnEffectOptions}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label={_('E-Ink Animation Speed')}
+              disabled={!einkPageTurnAnimation}
+              data-setting-id='settings.control.einkPageTurnSpeed'
+            >
+              <SettingsSelect
+                value={einkPageTurnSpeedValue}
+                onChange={(e) =>
+                  setEinkPageTurnSpeed(
+                    e.target.value === EINK_PANEL_DEFAULT ? 'default' : Number(e.target.value),
+                  )
+                }
+                ariaLabel={_('E-Ink Animation Speed')}
+                disabled={!einkPageTurnAnimation}
+                options={einkPageTurnSpeedOptions}
+              />
+            </SettingsRow>
+          </>
+        ) : (
+          <>
+            <SettingsSwitchRow
+              label={_('Paging Animation')}
+              checked={animated && !isEink}
+              onChange={() => setAnimated(!animated)}
+              disabled={isEink}
+            />
+            <SettingsRow
+              label={_('Animation Style')}
+              data-setting-id='settings.control.pageTurnStyle'
+            >
+              <SettingsSelect
+                // A synced slide/curl setting from another device still reads as
+                // push here when this engine cannot animate it.
+                value={
+                  turnStyleOptions.some((opt) => opt.value === shownTurnStyle)
+                    ? shownTurnStyle
+                    : 'push'
+                }
+                onChange={(e) => setPageTurnStyle(e.target.value as PageTurnStyle)}
+                ariaLabel={_('Animation Style')}
+                options={turnStyleOptions}
+                disabled={!animated || isEink}
+              />
+            </SettingsRow>
+          </>
+        )}
       </BoxedList>
 
       <BoxedList title={_('Device')} data-setting-id='settings.control.device'>
