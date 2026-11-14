@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useEffect, useRef } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useSpatialNavigation } from '@/app/reader/hooks/useSpatialNavigation';
 import { useWindowFocusRestore } from '@/app/reader/hooks/useWindowFocusRestore';
+import { viewPagination } from '@/app/reader/hooks/usePagination';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useBookDataStore } from '@/store/bookDataStore';
@@ -73,12 +74,15 @@ const FooterBar: React.FC<FooterBarProps> = ({
   );
 
   const handleGoPrevPage = useCallback(() => {
-    view?.renderer.prev();
-  }, [view]);
+    if (viewSettings?.isEink && !view?.renderer.scrolled) viewPagination(view, viewSettings, 'up');
+    else view?.renderer.prev();
+  }, [view, viewSettings]);
 
   const handleGoNextPage = useCallback(() => {
-    view?.renderer.next();
-  }, [view]);
+    if (viewSettings?.isEink && !view?.renderer.scrolled)
+      viewPagination(view, viewSettings, 'down');
+    else view?.renderer.next();
+  }, [view, viewSettings]);
 
   const handleGoPrevSection = useCallback(() => {
     view?.renderer.prevSection?.();

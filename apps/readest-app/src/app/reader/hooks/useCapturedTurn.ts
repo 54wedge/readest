@@ -34,7 +34,7 @@ import {
   type TouchDetail,
   useTouchInterceptor,
 } from './useTouchInterceptor';
-import { setFixedLayoutZoom } from './usePagination';
+import { setFixedLayoutZoom, shouldHandleEinkSwipe } from './usePagination';
 import { hasReaderOverlay, subscribeReaderOverlays } from '../utils/readerOverlay';
 
 // Once the native snapshot fails (older webview, capture bug), stop trying
@@ -117,7 +117,9 @@ export const applyPageTurnAttributes = (
   } else {
     view.renderer.removeAttribute('turn-style');
   }
-  if (viewSettings.disableSwipe || captured) {
+  // E-ink swipes use viewPagination too, so refresh and panel animation share
+  // the same decision as taps/keys rather than the paginator turning privately.
+  if (viewSettings.disableSwipe || captured || shouldHandleEinkSwipe(viewSettings)) {
     view.renderer.setAttribute('no-swipe', '');
   } else {
     view.renderer.removeAttribute('no-swipe');
@@ -245,6 +247,24 @@ export const useCapturedTurn = (bookKey: string, viewRef: React.RefObject<Foliat
   const view = viewRef.current;
 
   const isFixedLayout = () => !!getBookData(bookKey)?.isFixedLayout;
+  const isEink = getViewSettings(bookKey)?.isEink;
+  const scrolled = getViewSettings(bookKey)?.scrolled;
+  const einkSwipe = shouldHandleEinkSwipe(getViewSettings(bookKey));
+
+  // "Apply to all" can change a different open book's swipe owner as well.
+  useEffect(() => {
+    const settings = getViewSettings(bookKey);
+    if (view && settings) {
+      if (settings.isEink) {
+        view.renderer.setAttribute('eink', '');
+        view.renderer.removeAttribute('animated');
+      } else {
+        view.renderer.removeAttribute('eink');
+        if (settings.animated) view.renderer.setAttribute('animated', '');
+      }
+      applyPageTurnAttributes(view, settings, !!getBookData(bookKey)?.isFixedLayout);
+    }
+  }, [view, bookKey, isEink, scrolled, einkSwipe, getViewSettings, getBookData]);
 
   const markCaptureBroken = (error: unknown) => {
     const viewSettings = getViewSettings(bookKey);

@@ -270,12 +270,18 @@ const useBookShortcuts = ({ sideBarBookKey, bookKeys }: UseBookShortcutsProps) =
 
   const goPrev = () => {
     if (moveReadingRuler('up')) return;
-    getView(sideBarBookKey)?.prev(distance);
+    const view = getView(sideBarBookKey);
+    const settings = getViewSettings(sideBarBookKey ?? '');
+    if (settings?.isEink && !view?.renderer.scrolled) viewPagination(view, settings, 'up');
+    else view?.prev(distance);
   };
 
   const goNext = () => {
     if (moveReadingRuler('down')) return;
-    getView(sideBarBookKey)?.next(distance);
+    const view = getView(sideBarBookKey);
+    const settings = getViewSettings(sideBarBookKey ?? '');
+    if (settings?.isEink && !view?.renderer.scrolled) viewPagination(view, settings, 'down');
+    else view?.next(distance);
   };
 
   // Home / End (#5660). The view is registered in the store before its opening

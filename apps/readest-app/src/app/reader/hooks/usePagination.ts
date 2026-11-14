@@ -33,6 +33,12 @@ export type ScrollSource = 'touch' | 'mouse';
 type PaginationSide = 'left' | 'right' | 'up' | 'down';
 type PaginationMode = 'pan' | 'page' | 'section';
 
+// Keep the paginator's own gesture behavior unless a panel feature needs turns.
+export const shouldHandleEinkSwipe = (settings: ViewSettings | null | undefined) =>
+  !!settings?.isEink &&
+  !settings.scrolled &&
+  (settings.einkPageTurnAnimation || settings.einkAutoRefreshInterval > 0);
+
 const swapLeftRight = (side: PaginationSide) => {
   if (side === 'left') return 'right';
   if (side === 'right') return 'left';
@@ -757,24 +763,38 @@ export const usePagination = (
   // Horizontal pan of a zoomed page when the current touch began (see below);
   // undefined when this interceptor did not see the touch start.
   const swipeStartPanXRef = useRef<number | null | undefined>(undefined);
+  const einkSwipeBlockedRef = useRef(false);
 
-  // Touch swipe page flip for fixed-layout books — registered as a touch interceptor
-  // so it participates in the priority-based consumption chain.
+  // Fixed-layout and e-ink swipes share the manual pagination path. E-ink's
+  // renderer has no-swipe set, so it cannot also commit this gesture itself.
   useTouchInterceptor(
     `swipe-flip-${bookKey}`,
     (bk, detail) => {
       if (bk !== bookKey) return false;
+      const bookData = getBookData(bookKey);
+      const viewSettings = getViewSettings(bookKey);
+      const view = viewRef.current;
+      const einkSwipe = shouldHandleEinkSwipe(viewSettings);
+      if (detail.phase === 'start') einkSwipeBlockedRef.current = false;
+      if (einkSwipe && view) {
+        // Latch selection/scroll locks for the whole gesture: selection handles
+        // can briefly collapse or unlock just before touchend.
+        const selectionActive = view.renderer.getContents().some(({ doc }) => {
+          const selection = doc.getSelection();
+          return selection && !selection.isCollapsed;
+        });
+        einkSwipeBlockedRef.current ||= view.renderer.scrollLocked || selectionActive;
+      }
       if (detail.phase === 'start') {
-        swipeStartPanXRef.current = viewRef.current?.renderer.panX ?? null;
+        swipeStartPanXRef.current = view?.renderer.panX ?? null;
         return false;
       }
+      if (detail.phase === 'cancel') swipeStartPanXRef.current = undefined;
       if (detail.phase !== 'end') return false;
       const startPanX = swipeStartPanXRef.current;
       swipeStartPanXRef.current = undefined;
-      const bookData = getBookData(bookKey);
-      const viewSettings = getViewSettings(bookKey);
-      if (!bookData?.isFixedLayout || viewSettings?.scrolled) return false;
-      if (viewSettings?.disableSwipe) return false;
+      if ((!bookData?.isFixedLayout && !einkSwipe) || viewSettings?.scrolled) return false;
+      if (viewSettings?.disableSwipe || (einkSwipe && einkSwipeBlockedRef.current)) return false;
 
       const { deltaX, deltaY, deltaT } = detail;
       // A zoomed page pans under a drag, unless it is pulled past its edge.
@@ -786,7 +806,6 @@ export const usePagination = (
       if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30 && vx > 0.2) {
         // Like Photos, the page turned to opens at 100% zoom. A swipe at the
         // book's first or last page turns nowhere and keeps the zoom.
-        const view = viewRef.current;
         const forward = viewSettings?.rtl ? deltaX > 0 : deltaX < 0;
         if (panning && view && !(forward ? view.renderer.atEnd : view.renderer.atStart)) {
           setFixedLayoutZoom(bookKey, view, 100);
