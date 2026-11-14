@@ -488,6 +488,23 @@ impl<R: Runtime> NativeBridge<R> {
         Ok(EinkRefreshSupportedResponse { supported: false })
     }
 
+    pub fn play_eink_page_turn(
+        &self,
+        _payload: EinkPageTurnRequest,
+    ) -> crate::Result<EinkPageTurnResponse> {
+        Ok(EinkPageTurnResponse { success: false })
+    }
+
+    pub fn get_eink_page_animation_capabilities(
+        &self,
+    ) -> crate::Result<EinkPageAnimationCapabilitiesResponse> {
+        Ok(EinkPageAnimationCapabilitiesResponse {
+            supported: false,
+            effect_types: Vec::new(),
+            speeds: Vec::new(),
+        })
+    }
+
     pub fn update_bookshelf_widget(
         &self,
         _payload: UpdateBookshelfWidgetRequest,

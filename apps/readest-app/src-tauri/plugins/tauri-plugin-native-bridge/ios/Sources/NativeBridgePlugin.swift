@@ -2191,6 +2191,18 @@ class NativeBridgePlugin: Plugin {
     invoke.resolve(["supported": false])
   }
 
+  @objc public func play_eink_page_turn(_ invoke: Invoke) {
+    invoke.resolve(["success": false])
+  }
+
+  @objc public func get_eink_page_animation_capabilities(_ invoke: Invoke) {
+    invoke.resolve([
+      "supported": false,
+      "effectTypes": [Any](),
+      "speeds": [Any](),
+    ])
+  }
+
   @objc public func update_bookshelf_widget(_ invoke: Invoke) {
     guard let args = try? invoke.parseArgs(UpdateReadingWidgetRequestArgs.self) else {
       return invoke.reject("Failed to parse arguments")

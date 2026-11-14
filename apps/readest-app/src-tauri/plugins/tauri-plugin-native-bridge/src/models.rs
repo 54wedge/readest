@@ -639,6 +639,39 @@ pub struct EinkRefreshSupportedResponse {
     pub supported: bool,
 }
 
+/// Play one hardware page animation. Effect: 1 = ripple, 2 = waterfall;
+/// speed: 0 = fast, 1 = standard, 2 = slow. Omitted values default to 1.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EinkPageTurnRequest {
+    pub effect_type: Option<i32>,
+    pub forward: bool,
+    pub speed: Option<i32>,
+}
+
+/// Whether the command was sent successfully, not whether animation has finished.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EinkPageTurnResponse {
+    pub success: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EinkPageTurnOption {
+    pub value: i32,
+    pub label: String,
+}
+
+/// Read-only probe. Unsupported platforms return false and empty option lists.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EinkPageAnimationCapabilitiesResponse {
+    pub supported: bool,
+    pub effect_types: Vec<EinkPageTurnOption>,
+    pub speeds: Vec<EinkPageTurnOption>,
+}
+
 /// `isBoox` is a device-identity check (always available); `rawDrawing` is
 /// true only when this build was compiled against the BOOX Pen SDK (the
 /// `booxPen` Gradle flavor) and the SDK reports it can drive raw drawing on

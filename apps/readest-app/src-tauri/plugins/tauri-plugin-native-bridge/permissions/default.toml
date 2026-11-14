@@ -56,6 +56,8 @@ permissions = [
   "allow-clear-secure-item",
   "allow-refresh-eink-screen",
   "allow-is-eink-refresh-supported",
+  "allow-play-eink-page-turn",
+  "allow-get-eink-page-animation-capabilities",
   "allow-update-bookshelf-widget",
   "allow-get-bookshelf-widget-instances",
   "allow-set-bookshelf-widget-catalog",

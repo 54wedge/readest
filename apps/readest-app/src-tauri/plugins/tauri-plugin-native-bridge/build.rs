@@ -57,6 +57,8 @@ const COMMANDS: &[&str] = &[
     "clear_secure_item",
     "refresh_eink_screen",
     "is_eink_refresh_supported",
+    "play_eink_page_turn",
+    "get_eink_page_animation_capabilities",
     "update_bookshelf_widget",
     "get_bookshelf_widget_instances",
     "set_bookshelf_widget_catalog",

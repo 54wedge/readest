@@ -440,6 +440,21 @@ pub(crate) async fn is_eink_refresh_supported<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn play_eink_page_turn<R: Runtime>(
+    app: AppHandle<R>,
+    payload: EinkPageTurnRequest,
+) -> Result<EinkPageTurnResponse> {
+    app.native_bridge().play_eink_page_turn(payload)
+}
+
+#[command]
+pub(crate) async fn get_eink_page_animation_capabilities<R: Runtime>(
+    app: AppHandle<R>,
+) -> Result<EinkPageAnimationCapabilitiesResponse> {
+    app.native_bridge().get_eink_page_animation_capabilities()
+}
+
+#[command]
 pub(crate) async fn update_bookshelf_widget<R: Runtime>(
     app: AppHandle<R>,
     payload: UpdateBookshelfWidgetRequest,

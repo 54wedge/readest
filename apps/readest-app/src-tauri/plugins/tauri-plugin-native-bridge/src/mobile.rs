@@ -493,6 +493,23 @@ impl<R: Runtime> NativeBridge<R> {
             .map_err(Into::into)
     }
 
+    pub fn play_eink_page_turn(
+        &self,
+        payload: EinkPageTurnRequest,
+    ) -> crate::Result<EinkPageTurnResponse> {
+        self.0
+            .run_mobile_plugin("play_eink_page_turn", payload)
+            .map_err(Into::into)
+    }
+
+    pub fn get_eink_page_animation_capabilities(
+        &self,
+    ) -> crate::Result<EinkPageAnimationCapabilitiesResponse> {
+        self.0
+            .run_mobile_plugin("get_eink_page_animation_capabilities", ())
+            .map_err(Into::into)
+    }
+
     pub fn query_pen_capabilities(&self) -> crate::Result<QueryPenCapabilitiesResponse> {
         self.0
             .run_mobile_plugin("query_pen_capabilities", ())

@@ -133,6 +133,13 @@ class LockScreenOrientationRequestArgs {
 }
 
 @InvokeArg
+class EinkPageTurnArgs {
+    var effectType: Int? = null
+    var forward: Boolean = true
+    var speed: Int? = null
+}
+
+@InvokeArg
 class SetScreenBrightnessRequestArgs {
     var brightness: Double? = null // 0.0 to 1.0
 }
@@ -295,6 +302,8 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     private var nativePaper: NativePaperTurn? = null
     private val implementation = NativeBridge()
     private var webViewRef: WebView? = null
+    // UI-thread sequence: a full refresh or newer turn cancels an unsent animation.
+    private var einkPageTurnSequence = 0L
     private val billingManager by lazy {
         BillingManager(activity)
     }
@@ -2363,6 +2372,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     @Command
     fun refresh_eink_screen(invoke: Invoke) {
         activity.runOnUiThread {
+            ++einkPageTurnSequence
             val ret = JSObject()
             try {
                 val view = activity.window?.decorView
@@ -2401,6 +2411,56 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
         }
     }
 
+    /** The vendor command plays immediately, so send it after the destination frame commits. */
+    @Command
+    fun play_eink_page_turn(invoke: Invoke) {
+        val args = invoke.parseArgs(EinkPageTurnArgs::class.java)
+        activity.runOnUiThread {
+            val request = ++einkPageTurnSequence
+            try {
+                val webView = webViewRef
+                if (webView == null || !webView.isShown || !EinkPageTurnController.isSupported()) {
+                    invoke.resolve(JSObject().put("success", false))
+                    return@runOnUiThread
+                }
+                afterWebViewFrame(webView, invoke) {
+                    val ok = request == einkPageTurnSequence && webView === webViewRef &&
+                        webView.isShown && EinkPageTurnController.play(
+                            webView, args.effectType, args.forward, args.speed,
+                        )
+                    invoke.resolve(JSObject().put("success", ok))
+                }
+            } catch (t: Throwable) {
+                Log.d("NativeBridgePlugin", "play_eink_page_turn failed", t)
+                invoke.resolve(JSObject().put("success", false))
+            }
+        }
+    }
+
+    /** Read-only; inconclusive reflection failures reject so the caller can retry. */
+    @Command
+    fun get_eink_page_animation_capabilities(invoke: Invoke) {
+        try {
+            val supported = EinkPageTurnController.isSupported()
+            fun options(values: List<Pair<Int, String>>): JSArray {
+                val array = JSArray()
+                if (supported) {
+                    values.forEach { (value, label) ->
+                        array.put(JSObject().put("value", value).put("label", label))
+                    }
+                }
+                return array
+            }
+            invoke.resolve(JSObject()
+                .put("supported", supported)
+                .put("effectTypes", options(EinkPageTurnController.effectTypes))
+                .put("speeds", options(EinkPageTurnController.speeds)))
+        } catch (t: Throwable) {
+            Log.e("NativeBridgePlugin", "eink page animation capability probe inconclusive", t)
+            invoke.reject("eink page animation capability probe inconclusive")
+        }
+    }
+
     /**
      * Snapshot a region of the webview for the mesh page-curl texture
      * (readest#555). The rect arrives in CSS pixels of the JS viewport;
@@ -2420,7 +2480,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     /** DOM RAF completion does not mean WebView has submitted its new pixels
      * to the activity surface. In particular a returning sheet must not copy
      * the old page just after its covering canvas becomes hidden. */
-    private fun afterCaptureFrame(webView: WebView, invoke: Invoke, capture: () -> Unit) {
+    private fun afterWebViewFrame(webView: WebView, invoke: Invoke, action: () -> Unit) {
         if (!webView.isAttachedToWindow || activity.isFinishing || activity.isDestroyed) {
             invoke.reject("WebView not available")
             return
@@ -2430,7 +2490,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
         val timeout = Runnable {
             if (pending) {
                 pending = false
-                invoke.reject("WebView capture frame did not commit")
+                invoke.reject("WebView frame did not commit")
             }
         }
         val committed = {
@@ -2440,7 +2500,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
                 if (!webView.isAttachedToWindow || activity.isFinishing || activity.isDestroyed) {
                     invoke.reject("WebView not available")
                 } else {
-                    capture()
+                    action()
                 }
             }
         }
@@ -2472,7 +2532,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
             return
         }
         activity.runOnUiThread {
-            afterCaptureFrame(webView, invoke) {
+            afterWebViewFrame(webView, invoke) {
                 val density = webView.resources.displayMetrics.density
                 val location = IntArray(2)
                 webView.getLocationInWindow(location)
@@ -2482,7 +2542,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
                 val height = (args.height * density).toInt()
                 if (width <= 0 || height <= 0) {
                     invoke.reject("Empty capture region")
-                    return@afterCaptureFrame
+                    return@afterWebViewFrame
                 }
                 val captureScale = minOf(density, 2f)
                 val destWidth = (args.width * captureScale).toInt()
