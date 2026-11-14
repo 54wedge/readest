@@ -13,9 +13,10 @@ import java.lang.reflect.Method
  * into the platform `android.view.View` (or ships a private SDK). We probe
  * each known framework mechanism via reflection in turn and stop at the first
  * that succeeds, so one call works across Onyx BOOX (Qualcomm), Tolino / Nook
- * (NTX / Freescale), Boyue-style Rockchip devices and Hanvon readers without
- * compiling against any vendor SDK. Reflection targets are adapted from
- * KOReader's EPD controllers (koreader/android-luajit-launcher).
+ * (NTX / Freescale), Boyue-style Rockchip devices, Hanvon readers and iReader
+ * (zhangyue) panels without compiling against any vendor SDK. Reflection
+ * targets are adapted from KOReader's EPD controllers
+ * (koreader/android-luajit-launcher).
  *
  * Unlike a reader that owns the whole update loop, Readest leaves the device's
  * automatic e-ink handling in place, so we deliberately do NOT switch the panel
@@ -32,6 +33,12 @@ object EinkRefreshController {
     // android.view.View.postInvalidateDelayed(...) e-ink mode (NTX / Freescale):
     // EINK_UPDATE_MODE_FULL (32) + EINK_WAVEFORM_MODE_GC16 (2) = 34.
     private const val NTX_FULL_GC16 = 34
+
+    // android.eink.api.ViewAPI.invalidate(...) postMode (iReader / zhangyue):
+    // 98 is the ROM's full-refresh View mode, the same one EinkCore.e0(view,
+    // 4097) applies. This is a View postMode, not an EPDC waveform: do not pass
+    // it to EPDCDevice commands.
+    private const val IREADER_FULL_REFRESH = 98
 
     // The vendor hooks, resolved via class-level reflection and cached. Only a
     // definitive absence is cached as null — a NoSuchMethod / ClassNotFound from
@@ -91,6 +98,23 @@ object EinkRefreshController {
         }
     }
 
+    // iReader (zhangyue) ships no patched View method; android.eink.api.ViewAPI
+    // is the ROM's own helper that reposts a view with a refresh postMode and
+    // restores the original one. It repaints the reader view through the normal
+    // View pipeline instead of posting a panel-wide command.
+    private val zhangyueInvalidateView: Method? by lazy {
+        try {
+            Class.forName("android.eink.api.ViewAPI")
+                .getMethod("invalidate", View::class.java, Integer.TYPE)
+        } catch (e: ClassNotFoundException) {
+            Log.d(TAG, "zhangyue refresh unavailable: ${e.message}")
+            null
+        } catch (e: NoSuchMethodException) {
+            Log.d(TAG, "zhangyue refresh unavailable: ${e.message}")
+            null
+        }
+    }
+
     /**
      * Whether this device exposes at least one known full-refresh mechanism we
      * can attempt to drive. This is a best-effort *presence* check — a vendor
@@ -109,7 +133,7 @@ object EinkRefreshController {
         // reflection/linkage Error (deliberately left uncached as the
         // inconclusive signal), never reaching a later vendor hook that actually
         // exists — so a device whose only working mechanism is NTX/Rockchip/Hanvon
-        // would be hidden even though [refresh] probes all four and succeeds.
+        // would be hidden even though [refresh] probes all five and succeeds.
         // Any resolved handle is authoritative support; the Error is propagated
         // only when nothing is present, matching the "retry on inconclusive"
         // contract without discarding a real positive.
@@ -134,6 +158,11 @@ object EinkRefreshController {
         } catch (t: Throwable) {
             inconclusive = inconclusive ?: t
         }
+        try {
+            if (zhangyueInvalidateView != null) return true
+        } catch (t: Throwable) {
+            inconclusive = inconclusive ?: t
+        }
         inconclusive?.let { throw it }
         return false
     }
@@ -150,7 +179,8 @@ object EinkRefreshController {
         return onyxRefresh(view, width, height) ||
             ntxRefresh(view, width, height) ||
             rockchipRefresh(view) ||
-            hanvonRefresh(view.context)
+            hanvonRefresh(view.context) ||
+            zhangyueRefresh(view)
     }
 
     // Onyx BOOX (Qualcomm models): `refreshScreen` is an instance method patched
@@ -222,6 +252,22 @@ object EinkRefreshController {
             true
         } catch (e: Throwable) {
             Log.d(TAG, "hanvon refresh failed: ${e.message}")
+            false
+        }
+    }
+
+    // iReader (zhangyue): ViewAPI.invalidate(view, 98) sets the view's postMode
+    // to the full-refresh waveform, invalidates it and restores the mode, so the
+    // panel repaints the reader view the way the stock reader's "global refresh"
+    // does. It is a client-side View call: no binder, no package white list.
+    private fun zhangyueRefresh(view: View): Boolean {
+        return try {
+            val method = zhangyueInvalidateView ?: return false
+            method.invoke(null, view, IREADER_FULL_REFRESH)
+            Log.i(TAG, "zhangyue full refresh requested")
+            true
+        } catch (e: Throwable) {
+            Log.d(TAG, "zhangyue refresh failed: ${e.message}")
             false
         }
     }
